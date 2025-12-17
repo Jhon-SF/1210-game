@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テトリス</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @keyframes background-pan {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        body {
+            background-color: #0D0F21;
+            background: linear-gradient(135deg, #0D0F21, #131A40, #0D0F21);
+            background-size: 200% 200%;
+            animation: background-pan 15s ease infinite;
+            color: #EAEAEA;
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1, h2, h3 {
+            text-shadow: 0 0 4px #fff, 0 0 8px #fff, 0 0 12px #00FFFF, 0 0 16px #00FFFF;
+            letter-spacing: 2px;
+        }
+
+        /* --- Screen States & Overlays --- */
+        #start-screen {
+            display: flex;
+        }
+        #game-screen, #gameover-screen {
+            display: none;
+        }
+
+        #start-screen, #gameover-screen {
+            position: fixed;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(13, 15, 33, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 15px;
+            margin: 30px;
+            inset: 0;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+        }
+
+        #game-screen h1 {
+            font-size: 1.5em;
+        }
+        #game-screen #score {
+            color: #00FFFF;
+            text-shadow: 0 0 5px #00FFFF;
+        }
+
+        canvas {
+            border: 2px solid #00FFFF;
+            box-shadow: 0 0 15px #00FFFF, 0 0 25px #00FFFF inset;
+            border-radius: 8px;
+            height: 75vh;
+        }
+
+        /* --- Game Over Screen Layout --- */
+        #gameover-screen {
+            font-size: 1rem;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .gameover-center {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .gameover-center h2 { font-size: 3.5em; }
+        .gameover-center p { font-size: 1.8em; }
+
+        .gameover-bottom-left {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            text-align: left;
+        }
+        .gameover-bottom-left h3 { font-size: 1.8em; }
+        .gameover-bottom-left ol {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+            font-size: 1.2em;
+        }
+         .gameover-bottom-left li { padding: 5px 0; }
+
+        .gameover-bottom-right {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Buttons --- */
+        #start-screen button, #gameover-screen button {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1em;
+            padding: 12px 24px;
+            margin-top: 15px;
+            cursor: pointer;
+            color: #EAEAEA;
+            background: transparent;
+            border: 2px solid #00FFFF;
+            border-radius: 8px;
+            text-shadow: 0 0 5px #00FFFF;
+            box-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF inset;
+            transition: all 0.2s ease-in-out;
+        }
+
+        #start-screen button:hover, #gameover-screen button:hover {
+            background-color: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 15px #00FFFF, 0 0 25px #00FFFF inset, 0 0 10px #00FFFF;
+            transform: translateY(-2px);
+        }
+        
+        #gameover-screen button.selected {
+            border-color: #FF00FF;
+            color: #FFC8FF;
+            text-shadow: 0 0 5px #FF00FF;
+            box-shadow: 0 0 15px #FF00FF, 0 0 25px #FF00FF inset, 0 0 10px #FF00FF;
+        }
+
+        .new-score-indicator {
+            color: #FF00FF;
+            text-shadow: 0 0 5px #FF00FF;
+            animation: blink 1.5s infinite;
+            font-weight: bold;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        #pause-screen {
+            position: fixed;
+            inset: 0;
+            display: none; /* Initially hidden */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(13, 15, 33, 0.7); /* Slightly darker */
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: #EAEAEA;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2em;
+            text-align: center;
+            overflow-y: auto; /* For consistency */
+        }
+        #pause-screen h1 {
+            text-shadow: 0 0 5px #fff, 0 0 10px #00FFFF, 0 0 15px #00FFFF;
+        }
+        #pause-screen p {
+            font-size: 0.5em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <audio id="bgm1" src="bgm.mp3" loop></audio>
+    <audio id="bgm2" src="game2.mp3" loop></audio>
+    <audio id="bgm3" src="game3.mp3" loop></audio>
+    <audio id="gameover-bgm" src="gameover.mp3"></audio>
+    <audio id="move-se" src="move.mp3"></audio>
+    <audio id="start-bgm" src="start_bgm.mp3" loop></audio>
+    <audio id="enter-se" src="enter.mp3"></audio>
+    <audio id="select-se" src="select.mp3"></audio>
+    <audio id="delete-se" src="delete.mp3"></audio>
+
+    <div id="start-screen">
+        <h1>テトリス</h1>
+        <button id="start-button">Click or Press Enter to Start</button>
+    </div>
+
+    <div id="game-screen">
+        <h1>テトリス</h1>
+        <div>
+            <span>スコア: </span>
+            <span id="score">0</span>
+        </div>
+        <canvas id="tetris" width="240" height="480"></canvas>
+    </div>
+
+    <div id="gameover-screen">
+        <div class="gameover-center">
+            <h2>GAME OVER</h2>
+            <p>スコア: <span id="gameover-score">0</span></p>
+        </div>
+        <div class="gameover-bottom-left">
+            <h3>ハイスコア</h3>
+            <ol id="highscore-list"></ol>
+        </div>
+        <div class="gameover-bottom-right">
+            <button id="restart-button">ゲームを続ける</button>
+            <button id="back-to-start-button">スタート画面に戻る</button>
+        </div>
+    </div>
+
+    <div id="pause-screen">
+        <h1>PAUSED</h1>
+        <p>Press Enter to Resume</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const gameOverScreen = document.getElementById('gameover-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const backToStartButton = document.getElementById('back-to-start-button');
+
+        // Audio elements
+        const bgm1 = document.getElementById('bgm1');
+        const bgm2 = document.getElementById('bgm2');
+        const bgm3 = document.getElementById('bgm3');
+        const gameoverBgm = document.getElementById('gameover-bgm');
+        const moveSe = document.getElementById('move-se');
+        const startBgm = document.getElementById('start-bgm');
+        const enterSe = document.getElementById('enter-se');
+        const selectSe = document.getElementById('select-se');
+        const deleteSe = document.getElementById('delete-se');
+
+        const bgmTracks = [bgm1, bgm2, bgm3];
+        let currentBgm = null;
+
+        const ROWS = 20;
+        const COLS = 10;
+        const BLOCK_SIZE = canvas.width / COLS;
+
+        context.scale(BLOCK_SIZE, BLOCK_SIZE);
+
+        let score = 0;
+        let board = createBoard(COLS, ROWS);
+        let gameOver = false;
+        let gameStarted = false;
+        let isPaused = false;
+        let requestID;
+        let selectedGameOverButton = 0;
+        
+        let isClearingLines = false;
+        let linesToClear = [];
+        let clearAnimationTimer = 0;
+
+        let highScores = JSON.parse(localStorage.getItem('tetrisHighScores')) ?? [0, 0, 0];
+        if (!Array.isArray(highScores)) highScores = [0, 0, 0];
+        highScores.sort((a, b) => b - a);
+        highScores = highScores.slice(0, 3);
+
+        const activeFades = new Map();
+        function fadeinAudio(audio, duration = 1000) {
+            if (activeFades.has(audio)) {
+                clearInterval(activeFades.get(audio));
+            }
+            audio.volume = 0;
+            audio.currentTime = 0;
+            audio.play();
+
+            const fadeStep = 0.05;
+            const intervalTime = duration * fadeStep;
+
+            const fadeInterval = setInterval(() => {
+                if (audio.volume < 1.0 - fadeStep) {
+                    audio.volume += fadeStep;
+                } else {
+                    audio.volume = 1.0;
+                    clearInterval(fadeInterval);
+                    activeFades.delete(audio);
+                }
+            }, intervalTime);
+            activeFades.set(audio, fadeInterval);
+        }
+
+        function renderHighScores(highlightRank = -1) {
+            const list = document.getElementById('highscore-list');
+            list.innerHTML = '';
+            highScores.forEach((s, i) => {
+                const li = document.createElement('li');
+                let text = `${i + 1}位: ${s}点`;
+                if (i === highlightRank) {
+                    text += ' <span class="new-score-indicator">← You</span>';
+                }
+                li.innerHTML = text;
+                list.appendChild(li);
+            });
+        }
+
+        const tetrominoes = [
+            [[1, 1, 1, 1]], // I
+            [[1, 0, 0], [1, 1, 1]], // J
+            [[0, 0, 1], [1, 1, 1]], // L
+            [[1, 1], [1, 1]], // O
+            [[0, 1, 1], [1, 1, 0]], // S
+            [[0, 1, 0], [1, 1, 1]], // T
+            [[1, 1, 0], [0, 1, 1]], // Z
+            [[1]], // Monomino
+            [[1, 1]], // Domino
+            [[1, 1, 1]], // Tromino
+            [[0, 1, 0], [1, 1, 1], [0, 1, 0]], // Pentomino
+        ];
+
+        const colors = [
+            null,
+            '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF',
+            '#FF8E0D', '#FFE138', '#3877FF', '#FFFFFF',
+            '#9400D3', '#00FF00', '#FF1493',
+        ];
+        
+        const player = { pos: { x: 0, y: 0 }, matrix: null, color: null };
+
+        function createBoard(cols, rows) {
+            const matrix = [];
+            while (rows--) matrix.push(new Array(cols).fill(0));
+            return matrix;
+        }
+
+        function draw() {
+            context.fillStyle = '#000';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            drawMatrix(board, { x: 0, y: 0 });
+            drawMatrix(player.matrix, player.pos, player.color);
+        }
+
+        function drawMatrix(matrix, offset, color) {
+            if (!matrix) return;
+            matrix.forEach((row, y) => {
+                if (isClearingLines && linesToClear.includes(y)) {
+                    row.forEach((value, x) => {
+                        context.fillStyle = (clearAnimationTimer % 8 < 4) ? '#FFFFFF' : '#888888';
+                        context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    });
+                } else {
+                    row.forEach((value, x) => {
+                        if (value !== 0) {
+                            context.fillStyle = color || colors[value];
+                            context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                        }
+                    });
+                }
+            });
+        }
+        
+        function merge(board, player) {
+            player.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) board[y + player.pos.y][x + player.pos.x] = value;
+                });
+            });
+        }
+
+        function collide(board, player) {
+            const [m, o] = [player.matrix, player.pos];
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 && (board[y + o.y] && board[y + o.y][x + o.x]) !== 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function rotate(matrix, dir) {
+            const newMatrix = [];
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            for (let i = 0; i < cols; i++) newMatrix.push(new Array(rows).fill(0));
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (dir > 0) newMatrix[x][rows - 1 - y] = matrix[y][x];
+                    else newMatrix[cols - 1 - x][y] = matrix[y][x];
+                }
+            }
+            return newMatrix;
+        }
+
+        function updateGameOverButtonSelection() {
+            if (selectedGameOverButton === 0) {
+                restartButton.classList.add('selected');
+                backToStartButton.classList.remove('selected');
+            } else {
+                restartButton.classList.remove('selected');
+                backToStartButton.classList.add('selected');
+            }
+        }
+
+        function handleGameOver() {
+            gameOver = true;
+            cancelAnimationFrame(requestID);
+            if (currentBgm) currentBgm.pause();
+            fadeinAudio(gameoverBgm);
+
+            document.getElementById('gameover-score').textContent = score;
+
+            highScores.push(score);
+            highScores.sort((a, b) => b - a);
+            const newScoreRank = highScores.indexOf(score);
+
+            highScores = highScores.slice(0, 3);
+            localStorage.setItem('tetrisHighScores', JSON.stringify(highScores));
+            
+            renderHighScores(newScoreRank < 3 ? newScoreRank : -1);
+
+            gameScreen.style.display = 'none';
+            gameOverScreen.style.display = 'block';
+            selectedGameOverButton = 0;
+            updateGameOverButtonSelection();
+        }
+
+        function playerReset() {
+            const index = Math.floor(Math.random() * tetrominoes.length);
+            const matrix = tetrominoes[index];
+            const colorIndex = index + 1;
+            player.matrix = matrix.map(row => row.map(value => value !== 0 ? colorIndex : 0));
+            player.color = colors[colorIndex];
+            player.pos.y = 0;
+            player.pos.x = (board[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+            if (collide(board, player)) handleGameOver();
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(board, player)) {
+                player.pos.y--;
+                merge(board, player);
+                player.matrix = null;
+                if (player.pos.y < 1) {
+                    handleGameOver();
+                    return;
+                }
+                checkForLines();
+            }
+            dropCounter = 0;
+        }
+
+        function playerMove(dir) {
+            player.pos.x += dir;
+            if (collide(board, player)) player.pos.x -= dir;
+        }
+        
+        function playerRotate(dir) {
+            const pos = player.pos.x;
+            const originalMatrix = player.matrix;
+            let offset = 1;
+            player.matrix = rotate(player.matrix, dir);
+            while(collide(board, player)) {
+                player.pos.x += offset;
+                offset = -(offset + (offset > 0 ? 1 : -1));
+                if (offset > player.matrix[0].length) {
+                    player.matrix = originalMatrix;
+                    player.pos.x = pos;
+                    return;
+                }
+            }
+        }
+
+        function checkForLines() {
+            linesToClear = [];
+            for (let y = board.length - 1; y > 0; --y) {
+                let isFull = true;
+                for (let x = 0; x < board[y].length; ++x) {
+                    if (board[y][x] === 0) {
+                        isFull = false;
+                        break;
+                    }
+                }
+                if (isFull) {
+                    linesToClear.push(y);
+                }
+            }
+
+            if (linesToClear.length > 0) {
+                isClearingLines = true;
+                clearAnimationTimer = 20;
+                deleteSe.currentTime = 0;
+                deleteSe.play();
+            } else {
+                playerReset();
+            }
+        }
+
+        function executeSweep() {
+            let clearedLinesCount = 0;
+            for (const y of linesToClear.sort((a, b) => a - b)) {
+                const row = board.splice(y, 1)[0].fill(0);
+                board.unshift(row);
+                clearedLinesCount++;
+            }
+            score += clearedLinesCount * 10;
+        }
+
+        let dropCounter = 0;
+        let dropInterval = 1000;
+        let lastTime = 0;
+
+        function update(time = 0) {
+            if (isPaused) {
+                requestID = requestAnimationFrame(update);
+                return;
+            }
+
+            if (isClearingLines) {
+                clearAnimationTimer--;
+                draw();
+                if (clearAnimationTimer <= 0) {
+                    executeSweep();
+                    isClearingLines = false;
+                    linesToClear = [];
+                    playerReset();
+                }
+            } else {
+                const deltaTime = time - lastTime;
+                lastTime = time;
+                dropCounter += deltaTime;
+                if (dropCounter > dropInterval) playerDrop();
+                if (!gameOver) {
+                    scoreElement.innerText = score;
+                    draw();
+                }
+            }
+            if (!gameOver) {
+                requestID = requestAnimationFrame(update);
+            }
+        }
+
+        function togglePause() {
+            if (!currentBgm) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                cancelAnimationFrame(requestID);
+                if (activeFades.has(currentBgm)) {
+                    clearInterval(activeFades.get(currentBgm));
+                    activeFades.delete(currentBgm);
+                }
+                currentBgm.volume = 0.3;
+                pauseScreen.style.display = 'flex';
+            } else {
+                pauseScreen.style.display = 'none';
+                currentBgm.volume = 1.0;
+                update();
+            }
+        }
+
+        function startGame() {
+            if(gameStarted) return;
+            enterSe.currentTime = 0;
+            enterSe.play();
+            gameStarted = true;
+            startBgm.pause();
+            startScreen.style.display = 'none';
+            restartGame();
+        }
+
+        function restartGame() {
+            gameoverBgm.pause();
+            if (currentBgm) {
+                currentBgm.pause();
+            }
+            const nextTrackIndex = Math.floor(Math.random() * bgmTracks.length);
+            currentBgm = bgmTracks[nextTrackIndex];
+            fadeinAudio(currentBgm);
+
+            board = createBoard(COLS, ROWS);
+            score = 0;
+            gameOver = false;
+            gameOverScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            playerReset();
+            if (!gameOver) {
+                isClearingLines = false;
+                linesToClear = [];
+                update();
+            }
+        }
+
+        function backToStart() {
+            gameoverBgm.pause();
+            if (currentBgm) currentBgm.pause();
+            gameOver = false;
+            gameStarted = false;
+            gameOverScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+            fadeinAudio(startBgm);
+        }
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', () => {
+            moveSe.currentTime = 0;
+            moveSe.play();
+            restartGame();
+        });
+        backToStartButton.addEventListener('click', () => {
+            moveSe.currentTime = 0;
+            moveSe.play();
+            backToStart();
+        });
+        
+        document.addEventListener('keydown', event => {
+            if (!gameStarted && event.key === 'Enter') {
+                startGame();
+                return;
+            }
+
+            if (isClearingLines) return;
+
+            if (gameStarted && !gameOver && event.key === 'Enter') {
+                togglePause();
+                return;
+            }
+
+            if (gameOver) {
+                if (event.key === 'ArrowUp') {
+                    selectSe.currentTime = 0;
+                    selectSe.play();
+                    selectedGameOverButton = 0;
+                    updateGameOverButtonSelection();
+                } else if (event.key === 'ArrowDown') {
+                    selectSe.currentTime = 0;
+                    selectSe.play();
+                    selectedGameOverButton = 1;
+                    updateGameOverButtonSelection();
+                } else if (event.key === 'Enter') {
+                    enterSe.currentTime = 0;
+                    enterSe.play();
+                    if (selectedGameOverButton === 0) {
+                        restartGame();
+                    } else {
+                        backToStart();
+                    }
+                }
+                return;
+            }
+
+            if (!gameStarted || gameOver || isPaused) return;
+
+            if (['z', 'c', 'x', 's'].includes(event.key)) {
+                moveSe.currentTime = 0;
+                moveSe.play();
+            }
+
+            if (event.key === 'z') playerMove(-1);
+            else if (event.key === 'c') playerMove(1);
+            else if (event.key === 'x') playerDrop();
+            else if (event.key === 's') playerRotate(1);
+        });
+
+        fadeinAudio(startBgm);
+    </script>
